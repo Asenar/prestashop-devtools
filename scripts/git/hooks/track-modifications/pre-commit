@@ -1,0 +1,38 @@
+#!/bin/sh
+#
+# file : pre-commit
+# desc : This hooks track database modification and backup them in $dump_filename 
+#        in a prestashop installation. This hook is the reciprocal of post-checkout
+
+# author : Michaël Marineti
+# creation : 2012-04-30
+# modified : 2012-05-03
+#
+# CHANGELOG
+# 
+#
+# TODO 
+# - add a config file (that will be used by both pre-commit and post-checkout)
+
+db_to_save="`grep DB_NAME config/settings.inc.php  |awk -F\' '{print $4}'`"
+dump_filename=dump.sql
+
+dbuser="`grep DB_USER config/settings.inc.php  |awk -F\' '{print $4}'`"
+dbpass="`grep DB_PASSWD config/settings.inc.php  |awk -F\' '{print $4}'`"
+
+if (test -z $dbpass) then
+	mysql_conn_string="-u$dbuser"
+else
+	mysql_conn_string="-u$dbuser -p$dbpass"
+fi
+
+mysqldump $mysql_conn_string --skip-comments --skip-extended-insert $db_to_save > $dump_filename
+if (test $? -ne 0) then
+	echo "error on mysqldump"
+	exit 1
+fi
+
+git add $dump_filename 
+echo "$dump_filename has been updated"
+
+
