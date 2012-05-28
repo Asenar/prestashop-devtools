@@ -1,0 +1,40 @@
+#!/bin/sh
+#
+# file : post-checkout
+# desc : This hooks restore your prestashop database to a previous state that have been backed up in dump.sql.
+#        This hook is the reciprocal of pre-commit
+#
+# author : Michaël Marineti
+# creation : 2012-04-30
+# modified : 2012-05-28
+#
+# CHANGELOG
+# 2012-05-28
+# clean code, add comments
+#
+
+db_to_restore="`grep DB_NAME config/settings.inc.php  |awk -F\' '{print $4}'`"
+dbuser="`grep DB_USER config/settings.inc.php  |awk -F\' '{print $4}'`"
+dbpass="`grep DB_PASSWD config/settings.inc.php  |awk -F\' '{print $4}'`"
+if (test -z $dbpass) then
+	mysql_conn_string="-u$dbuser"
+else
+	mysql_conn_string="-u$dbpass -p$dbpass"
+fi
+
+# createDb drop database then re-create it
+echo "drop database $db_to_restore" |mysql $mysql_conn_string
+echo "create database $db_to_restore" |mysql $mysql_conn_string
+
+mysql $mysql_conn_string $db_to_restore < dump.sql
+if (test $? -ne 0) then
+	echo "error on mysql restoration. Database has not been restored."
+	exit 1
+fi
+
+####### do additionnal processing #######
+
+
+## end of doing additionnal processing ##
+
+echo "database restored to state $2 (of dump.sql)"

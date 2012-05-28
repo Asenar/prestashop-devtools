@@ -1,0 +1,67 @@
+#!/bin/sh
+#
+# file : prepareAutoupgrade
+# desc : This script prepare a prestashop directory to use module autougprade:
+#        - hard link (ln) the autoupgrade files from $AUTOUPGRADE_DIR
+#        - do a git init with the hooks found in $GIT_TEMPLATE_DIR (see pre-commit and post-checkout hooks)
+#        - add an entry in $LOG_DIR/prepareAutoupgrade.log
+#
+# author : Michaël Marineti
+# creation : 2012-05-09
+# modified : 2012-05-28
+#
+# CHANGELOG
+#
+# 2012-05-22
+# now each usage will add an entry in LOG_DIR/prepare_autoupgrade.log
+# this will be more convenient to remove hard links after (just in case)
+# 
+# 2012-05-28
+# use of var for easy-sharing
+# cleaning code, added comments
+#
+
+# /!\ be sure to have write access 
+LOG_DIR=/var/log
+# Usually, I put my git stuff here :)
+AUTOUPGRADE_DIR=/var/git/Module-PrestaShop-autoupgrade/modules/autoupgrade
+# which .git template to use ? (for automatically add pre-commit/post-checkout hooks). I put mine in $HOME/.git-templates
+GIT_TEMPLATE_DIR=../.git-templates/prepareAutoupgrade
+
+##### get current autoupgrade module files #####
+echo "[AUTOUPGRADE] `date` - `pwd` init." >> $LOG_DIR/prepare_autoupgrade.log
+rm -rf modules/autoupgrade
+if (test $? -ne 0) then
+	echo "error on removing autoupgrade and db files"
+	exit 1
+fi
+mkdir -p modules/autoupgrade/db admin-dev/autoupgrade
+if (test $? -ne 0) then
+	echo "error on mkdir -p modules/autoupgrade/db admin-dev/autoupgrade"
+	exit 1
+fi
+ln $AUTOUPGRADE_DIR/*.* modules/autoupgrade/ 2>/dev/null
+#if (test $? -ne 0) then
+#	echo "error on ln autoupgrade"
+#	exit 1
+#fi
+
+ln $AUTOUPGRADE_DIR/db/* modules/autoupgrade/db/
+if (test $? -ne 0) then
+	echo "error on ln autoupgrade/db/"
+	exit 1
+fi
+
+
+# We can uncomment this if the admin dir is "admin-dev"
+#if (test ! -d admin-dev/autoupgrade) then
+#	echo "admin-dev/autoupgrade created"
+#	mkdir admin-dev/autoupgrade
+#fi
+#cp modules/autoupgrade/ajax-upgradetab.php admin-dev/autoupgrade/ajax-upgradetab.php
+
+git init . --template=$GIT_TEMPLATE_DIR
+echo $(tput setaf 2)"git initialized with pre-commit and post-checkout git hooks for backup/restore"$(tput sgr0)
+echo "autoupgrade added to .gitignore"
+echo 'autoupgrade' > .gitignore
+echo "">> $LOG_DIR/prepareAutoupgrade.log
