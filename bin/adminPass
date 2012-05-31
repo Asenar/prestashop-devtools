@@ -1,0 +1,76 @@
+#!/bin/sh
+
+# create new user $adminEmail $adminPassword, or update if $adminEmail already exists in db
+
+DEFAULT_EMAIL=michael.marinetti@prestashop.com
+DEFAULT_PASSWD=123456789
+
+# ======================= #
+
+if (test "$une_option" = "-h" -o "$une_option" = "--help" ) then
+		echo "set employee id=1 to default email and password"
+		echo "Usage: addDbEmailPass [userPassword=$DEFAULT_PASSWD] [userEmail=$DEFAULT_EMAIL]"
+		exit
+fi
+
+if (test ! -d "config" -o ! -f "config/settings.inc.php") then
+	echo ""
+	echo "config is not a valid directory or config/settings.inc.php is missing"
+	echo "ABORTED"
+	exit
+else
+	#echo ""
+	echo "config/settings.inc.php exists :)"
+	#echo ""
+fi
+adminEmail="$2"
+if (test -z $adminEmail) then
+	adminEmail=$DEFAULT_EMAIL
+fi
+
+adminPassword="$1"
+if (test -z $adminPassword) then
+	adminPassword=$DEFAULT_PASSWD
+fi
+
+# ================================= #
+
+baseDir=`pwd`
+COOKIE_KEY=`cat $baseDir/config/settings.inc.php | grep COOKIE_KEY | awk -F \' '{print $4}'`
+dbname=`cat $baseDir/config/settings.inc.php | grep _DB_NAME_ | awk -F \' '{print $4}'`
+dbuser=`cat $baseDir/config/settings.inc.php | grep _DB_USER_ | awk -F \' '{print $4}'`
+dbpass=`cat $baseDir/config/settings.inc.php | grep _DB_PASSWD_ | awk -F \' '{print $4}'`
+
+
+#echo "select id_employee, email, passwd from $dbname.ps_employee where email='$adminEmail'" |mysql -u$dbuser $dbname --table
+id_employee=`echo "select id_employee from $dbname.ps_employee where email='$adminEmail'" |mysql -u$dbuser $dbname`
+if (test -n "$id_employee") then
+	actionDesc="Employee email already exists (id = `echo $id_employee | awk '{print $2}'`)"
+	action=UPDATE
+	query="UPDATE $dbname.ps_employee set passwd='`phpmd5 $COOKIE_KEY$adminPassword`', active=1, id_profile = 1, lastname='Bergerac', firstname='Cyrano Savinien' WHERE email='$adminEmail'" 
+else
+	actionDesc="Create new employee ..."
+	action=INSERT
+	query="INSERT into $dbname.ps_employee set passwd='`phpmd5 $COOKIE_KEY$adminPassword`', active=1, id_profile = 1, lastname='Bergerac', firstname='Cyrano Savinien', email='$adminEmail'" 
+fi
+echo $query |mysql -u$dbuser $dbname
+errorSql=0
+errorSql=$?
+if (test $errorSql -ne 0) then
+	echo '... Error :'
+	echo "$query"
+fi
+echo "------------------------------------------------------------------------"
+echo "| Setting summary                                                      |"
+echo "------------------------------------------------------------------------"
+# todo : find a way for makint a table :)
+echo "| db        : $dbname                                                   "
+echo "| dbuser    : $dbuser                                                   "
+echo "| dbpass    : $dbpass                                                   "
+echo "| email     : $adminEmail                                               "
+echo "| pass      : $adminPassword                                            "
+echo "| cookieKey : $COOKIE_KEY |"
+echo "| $action    : $actionDesc "
+echo "------------------------------------------------------------------------"
+#echo "replace into $dbname.ps_employee set email='$adminEmail', passwd='`phpmd5 $COOKIE_KEY$adminPassword`', active=1, id_profile=1" 
+#echo "replace into $dbname.ps_employee set passwd='`phpmd5 $COOKIE_KEY$adminPassword`', active=1, id_profile = 1, lastname='Bergerac', firstname='Cyrano Savinien' WHERE email='$adminEmail'" |mysql -u$dbuser $dbname

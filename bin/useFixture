@@ -1,0 +1,317 @@
+#!/bin/bash
+#
+# file : useFixture
+# desc : this script reset a prestashop installation with the appropriate datas, settings.inc.php and files
+#        passed in 1st parameter. autocompletion included.
+#
+#
+# author : Michaël Marineti
+# creation : 2011-06-14
+# modified : 2012-05-31
+#
+# TODO
+#
+# CHANGELOG
+# 2011-08-01
+# [+] verbose  :) :) :)
+# [+] autocompletion, Oh YEAH !
+# [+] --db param
+# 2011-09-11
+# [+] --use-fixture-dir param
+# [+] --base-uri
+# [+] now also remove cache files 
+# [+] set admin user
+# [+]
+# [+]
+# 2012-12-20 : 
+# [+] removeDirs to remove all directories
+# [+]
+# [+]
+# [+]
+# 2012-05-31 : 
+# [+] change customer emails to [id_customer]@prestashop.com
+# [#] clean code, 
+#
+#
+# TODO 
+# Do better when creating employee
+# 1.4/1.5 full compatibility (--base-uri + SHOP_DOMAIN )
+# 
+
+
+MYSQL_ROOT_USER_PASSWORD_STRING="-uroot"
+working_dir=`pwd`
+fixtureDir=/var/fixtures/
+# binDir : where adminPass and createDb are located
+binDir=/home/michael/bin
+# Do you want also to rm some dirs ?
+removeDirs="classes config controllers css img js tools webservice upload docs js translations css classes mails"
+removeDirs=""
+verbose_mode=1
+use_fixture_dir=0
+
+# new website will be here 
+adminPassword=123456789
+adminEmail='pub@prestashop.com'
+
+### verbose()
+# Affiche sur la sortie standard l'argument passé en parametre,
+# si $verbose_mode vaut "On"
+verbose () {
+	if(test $verbose_mode -eq 1 ) then
+		printf "$1\r\n"
+	fi
+	return 0
+}
+
+
+# @param $1 arg to find
+# @param $2 need to be "$@"
+getArgAfter (){
+	thisone=0;
+	param_to_search=$1
+	all_params=$#
+	# seq 2 $# : getting all args of the function except the first one
+	lebonarg=0;
+	for i in `seq 2 $all_params`;
+	do 
+		param=`eval echo '${'${i}'}'`
+		param_value=`echo ${param#$param_to_search}`
+		if (test "$param" != "$param_value") then
+			if (test -z "$param_value") then
+				echo "1"
+			else
+				echo "${param_value#=}"
+			fi
+			return 0
+		fi;
+	done
+	return 1
+}
+quiet_arg="`getArgAfter "-q" $@`"
+
+if [ "$quiet_arg" = "1" ]; then
+	verbose_mode=0
+fi
+
+help=`getArgAfter "--help" $@`
+if (test "$help") then
+	echo "DESCRIPTION"
+	echo "uses [fixture_name].sql, [fixture_name].settings.inc.php (if exists), "
+	echo "and [fixture_name] (if exists) from $fixtureDir "
+	echo "USAGE"
+	echo "useFixture [fixture] [--base-uri=/directory/] [--db=dbname] --use-fixture-dir"
+	echo "default database is,"
+	echo "   - from --db, if precised in cli"
+	echo "   - old value from settings.inc.php (if available)"
+	echo "   - otherwise, default value from fixture"
+	echo "default base-uri is,"
+	echo "   - --base-uri, if precised in cli"
+	echo "   - old value from settings.inc.php (if available)"
+	echo "   - otherwise, default value from fixture"
+	echo " --use-fixture-dir to also (if available) copy files"
+	exit 
+fi
+
+
+if (test -z "$1") then
+	echo ''
+	echo 'First argument (fixture name) is missing. type useFixture --help'
+	exit 1
+fi
+fixture_name=$1
+
+verbose "¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤"
+verbose "¤                        USE FIXTURE                          ¤"
+verbose "¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤"
+verbose " Trying to use fixture $fixture_name based on $working_dir installation "
+
+db=`getArgAfter "--db" $@`
+if (test -n "$db") then
+	verbose "Database used : $db (arg --db= used)"
+else
+	if (test -f $working_dir/config/settings.inc.php) then
+		db=`cat "$working_dir/config/settings.inc.php" | grep "DB_NAME" | sed "s#.*DB_NAME_', '\(.*\)');*#\1#"`
+	else
+		db=`cat "$fixtureDir$fixture_name.settings.inc.php" | grep "DB_NAME" | sed "s#.*DB_NAME_', '\(.*\)');*#\1#"`
+	fi
+fi
+prefix=`cat "$fixtureDir$fixture_name.settings.inc.php" | grep "DB_PREFIX" | sed "s#.*DB_PREFIX_', '\(.*\)');*#\1#"`
+verbose "Database used : $db, with prefix $prefix ($fixtureDir$fixture_name.settings.inc.php) ..."
+
+base_uri=`getArgAfter "--base-uri" $@`
+if (test -n "$base_uri") then
+	verbose "__PS_BASE_URI__ : $base_uri (from cli)"
+else
+	if (test -f $working_dir/config/settings.inc.php) then
+		base_uri=`cat "$working_dir/config/settings.inc.php" | grep "__PS_BASE_URI__" | sed "s#.*__PS_BASE_URI__', '\(.*\)');*#\1#"`
+		verbose "__PS_BASE_URI__ : $base_uri (from current settings.inc.php) ..."
+	else
+		base_uri=`cat "$fixtureDir$fixture_name.settings.inc.php" | grep "__PS_BASE_URI__" | sed "s#.*__PS_BASE_URI__', '\(.*\)');*#\1#"`
+		verbose "__PS_BASE_URI__ : $base_uri ($fixtureDir$fixture_name.settings.inc.php) ..."
+	fi
+fi
+
+
+# copying all files from fixture dir (if exists)
+# but remove all before :) 
+use_fixture_dir=`getArgAfter "--use-fixture-dir" $@`
+if (test ! -d $working_dir/config) then
+	verbose "$working_dir/config is missing, we assume the directoy is empty (@todo : check the return of ls )"
+	use_fixture_dir=1
+fi
+
+if (test -n "$use_fixture_dir") then
+	if (test -d "$fixtureDir$fixture_name") then
+		echo "The following directory will be deleted : $removeDirs"
+		echo "press y to continue"
+		read pouet
+		if [ "$pouet" = "y" ]; then
+		for i in $removeDirs;
+		do
+			verbose "Removing $i ..."
+			if (test -f $working_dir/$i) then
+				rm -rf $working_dir/$i 
+			fi
+			verbose "$i removed ... "
+		done
+		if (test -d $working_dir/modules) then
+			cd $working_dir/modules
+			verbose "=========== moved to module dir to remove all modules but autoupgrade"
+			verbose "modules to remove : "
+			verbose "rm -rf `ls -1 | grep -v 'autoupgrade\|.svn'`"
+			rm -rf `ls -1 | grep -v "autoupgrade\|.svn"`
+			verbose "---------------DONE"
+			cd -
+		fi
+			echo "$removeDirs ok"
+		else
+			echo "removeDir skipped, you are a wise man :) "
+		fi
+		verbose "Copying files ... $fixtureDir$fixture_name/* into $working_dir"
+		read pouet
+		cp -rf $fixtureDir$fixture_name/* $working_dir/
+		verbose "...ok"
+	else
+		verbose "Fixture dir is missing"
+	fi
+else
+	verbose "Directory copy skipped. (you can add the option --use-fixture-dir) "
+fi
+
+# 1st use correct settings for db
+verbose "Copying settings.inc.php from fixtures ..."
+verbose "copy cp $fixtureDir$fixture_name.settings.inc.php $working_dir/config/settings.inc.php"
+cp $fixtureDir$fixture_name.settings.inc.php $working_dir/config/settings.inc.php
+# 2nd set correct db_name, base_uri and _DB_PREFIX_
+sed -i -e "s#\(.*DB_NAME_', '\).*\('.*\)#\1$db\2#" \
+	-e "s#\(.*__PS_BASE_URI__', '\).*\('.*\)#\1$base_uri\2#" \
+	-e "s#\(.*_DB_PREFIX_', '\).*\('.*\)#\1$prefix\2#" \
+	$working_dir/config/settings.inc.php
+ 
+verbose '...ok'
+
+
+# 1st : set bdd
+echo "drop database if exists $db"| mysql $MYSQL_ROOT_USER_PASSWORD_STRING
+echo "create database $db"| mysql $MYSQL_ROOT_USER_PASSWORD_STRING
+verbose "database $db is empty"
+verbose "Loading $fixtureDir$fixture_name.sql into $db database ..."
+mysql $MYSQL_ROOT_USER_PASSWORD_STRING $db < $fixtureDir$fixture_name.sql
+errorSql=$?
+if (test $errorSql -ne 0) then
+	echo '... Error :'
+	echo "$query"
+else
+	verbose '...ok'
+fi
+
+
+verbose "delete smarty tpl cache files"
+rm -rf $working_dir/cache/smarty/compile/*.tpl.php
+
+
+# sh $binDir/adminPass
+#####################################################################################################
+##### SETTING ADMIN PASS
+
+#if (test -n $1)	then
+#	adminEmail=$1
+#fi
+baseDir=`pwd`
+COOKIE_KEY=`cat $baseDir/config/settings.inc.php | grep COOKIE_KEY | awk -F \' '{print $4}'`
+dbname=`cat $baseDir/config/settings.inc.php | grep _DB_NAME_ | awk -F \' '{print $4}'`
+dbuser=`cat $baseDir/config/settings.inc.php | grep _DB_USER_ | awk -F \' '{print $4}'`
+dbpass=`cat $baseDir/config/settings.inc.php | grep _DB_PASSWD_ | awk -F \' '{print $4}'`
+if (test "$dbpass" != "") then
+	arg_sql_pass="-u$dbuser -p$dbpass $dbname"
+else
+	arg_sql_pass="-u$dbuser $dbname"
+fi
+
+if (test "$dbuser" != "root") then
+	#	@todo : root should have a password
+	echo "CREATE USER '$dbuser'@'localhost' identified by '$dbpass'" | mysql $MYSQL_ROOT_USER_PASSWORD_STRING
+
+	echo "GRANT ALL PRIVILEGES ON $dbname.* to '$dbuser'@'localhost'" | mysql $MYSQL_ROOT_USER_PASSWORD_STRING
+
+	echo "FLUSH PRIVILEGES;" | mysql $MYSQL_ROOT_USER_PASSWORD_STRING
+	verbose "New mysql user '$dbuser'@'localhost' created with all privileges on $dbname.*"
+fi
+
+verbose "Resetting "$prefix"configuration SHOP_DOMAIN and SHOP_DOMAIN_SSL ..."
+echo 'update '$prefix'configuration set value="" where name like "%DOMAIN%"' | mysql $arg_sql_pass
+verbose '...ok'
+
+
+#echo "select id_employee, email, passwd from $dbname.ps_employee where email='$adminEmail'" |mysql -u$dbuser $dbname --table
+id_employee=`echo "select id_employee from $dbname."$prefix"employee where email='$adminEmail'" |mysql $arg_sql_pass `
+if (test -n "$id_employee") then
+	actionDesc="Employee email already exists (id = `echo $id_employee | awk '{print $2}'`)"
+	action=UPDATE
+	query="UPDATE $dbname."$prefix"employee set passwd='`phpmd5 $COOKIE_KEY$adminPassword`', active=1, id_profile = 1, lastname='Bergerac', firstname='Cyrano Savinien' WHERE email='$adminEmail'" 
+else
+	actionDesc="Create new employee ..."
+	action=INSERT
+	# note : added id_lang=1
+	query="INSERT into $dbname."$prefix"employee set passwd='`phpmd5 $COOKIE_KEY$adminPassword`', active=1, id_lang=1, id_profile = 1, lastname='Bergerac', firstname='Cyrano Savinien', email='$adminEmail'" 
+fi
+errorSql=0
+echo $query |mysql $arg_sql_pass
+errorSql=$?
+if (test $errorSql -ne 0) then
+	echo '... Error :'
+	echo "$query"
+fi
+
+echo "UPDATE $dbname."$prefix"customer set email=CONCAT(id_customer,'@prestashop.com'), passwd = '`phpmd5 $COOKIE_KEY$adminPassword`'" |mysql $arg_sql_pass
+if (test $errorSql -ne 0) then
+	echo '... Error :'
+	echo "$query"
+else
+	verbose "customer datas email reseted : email = id_customer@prestashop.com, passwd=$adminPassword"
+fi
+echo "------------------------------------------------------------------------"
+echo "| Setting summary                                                      |"
+echo "------------------------------------------------------------------------"
+# todo : find a way for makint a table :)
+echo "| Version   : $v_sett                                                   "
+echo "| db        : $dbname                                                   "
+echo "| dbuser    : $dbuser                                                   "
+echo "| dbpass    : $dbpass                                                   "
+echo "| email     : $adminEmail                                               "
+echo "| pass      : $adminPassword                                            "
+echo "| cookieKey : $COOKIE_KEY                                               "
+echo "| admin     : $actionDesc                                               "
+echo "| customers : [id_customer]@prestashop.com / $adminPassword             "
+echo "------------------------------------------------------------------------"
+#echo "replace into $dbname.ps_employee set email='$adminEmail', passwd='`phpmd5 $COOKIE_KEY$adminPassword`', active=1, id_profile=1" 
+#echo "replace into $dbname.ps_employee set passwd='`phpmd5 $COOKIE_KEY$adminPassword`', active=1, id_profile = 1, lastname='Bergerac', firstname='Cyrano Savinien' WHERE email='$adminEmail'" |mysql -u$dbuser $dbname
+
+#####################################################################################################
+
+v_sett=`cat "$working_dir/config/settings.inc.php" | grep "PS_VERSION" | sed "s#.*_PS_VERSION_', '\(.*\)');*#\1#"`
+echo "--------------------------------"
+echo "|                              |"
+echo "|                              |"
+echo "--------------------------------"

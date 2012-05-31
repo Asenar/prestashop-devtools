@@ -1,0 +1,22 @@
+# bash completion for Debian apache2 configuration tools
+# $Id: apache2,v 1.1 2005/03/16 22:51:19 guillaume Exp $
+
+_addFixture()
+{
+	local cur prev opts databases_available
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  prev="${COMP_WORDS[COMP_CWORD-1]}"
+  opts="--help --verbose --version"
+  databases_available="`echo "show databases"|mysql -uroot | grep -v 'information_schema\|phpmyadmin\|pma\|mysql'`"
+  if [[ ${cur} == -* ]] ; then
+		COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+   	return 0
+	else
+		COMPREPLY=( $(compgen -W "${databases_available}" ${cur}) )
+		
+  fi
+}
+complete -F _addFixture addFixture
+
+

@@ -1,0 +1,12 @@
+#!/bin/bash
+
+dbuser="root"
+dbpass=""
+if (test $dbpass -z) then
+	conn_string="-u$dbuser"
+else
+	conn_string="-u$dbuser -p$dbpass"
+fi
+echo "drop database if exists $1"| mysql $conn_string
+echo "create database $1"| mysql $conn_string
+echo "database $1 is empty"

@@ -1,0 +1,80 @@
+#!/bin/bash
+#
+# file : addFixture
+# desc : this script create a prestashop fixture (dump sql, settings.inc.php and files backup) and name it with the 
+#        1st parameter. Autocompletion included
+#
+#
+# author : Michaël Marineti
+# creation : 2011-06-14
+# modified : 2012-05-31
+#
+# TODO
+#
+# CHANGELOG
+# 2011-08-01
+# [+] verbose  :) :) :)
+# [+] autocompletion, Oh YEAH !
+#
+#
+# TODO 
+# - change customer email and pass 
+# - 1.4/1.5 full compatibility (--base-uri + SHOP_DOMAIN )
+# - add --help
+
+working_dir=`pwd`
+fixtureDir=/var/fixtures/
+
+if (test -z "$1") then
+	echo ''
+	echo 'First argument (fixture name) is missing'
+	exit 1
+fi
+fixture_name=$1
+
+echo "¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤"
+echo "¤                     CREATE FIXTURE                          ¤"
+echo "¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤"
+echo " Trying to create fixture $1 based on $working_dir installation "
+echo ""
+
+if (test -d $working_dir/config) then
+	if (test -f $working_dir/config/settings.inc.php) then
+		setting_file=$working_dir/config/settings.inc.php
+	else
+		echo "\t$working_dir/config/settings.inc.php is missing"
+		exit 9
+	fi
+	dir=$1
+else
+	echo "\t $working_dir/config doesn't exists"
+fi
+
+
+# 1st : add bdd
+db=`cat "$working_dir/config/settings.inc.php" | grep "DB_NAME" | sed "s#.*DB_NAME_', '\(.*\)');*#\1#"`
+echo "$db"
+if (test -n $1) then
+	fixtureDir=/var/fixtures/
+	echo "put database $db in $fixtureDir$fixture_name.sql"
+	mysqldump -uroot $db > $fixtureDir$fixture_name.sql
+else
+	echo "database not found, settings.inc.php may be missing"
+fi
+
+# 2nd add settings files
+cp $working_dir/config/settings.inc.php $fixtureDir$fixture_name.settings.inc.php
+echo "$working_dir/config/settings.inc.php copied in $fixtureDir$fixture_name.settings.inc.php"
+
+# 3rd add the whole dir.
+rm -rf $fixtureDir$fixture_name
+# if (test -d "$working_dir/.svn") then
+#	echo "exporting $working_dir into $fixtureDir$fixture_name"
+#	svn export $working_dir $fixtureDir$fixture_name --force
+#else
+	echo "/!\ /!\ NO MORE EXPORT, NOW ALWATS COPY /!\ /!\ "
+	echo "$working_dir into $fixtureDir$fixture_name"
+	cp -r $working_dir $fixtureDir$fixture_name
+# fi
+
+echo "Usage: useFixture $fixture_name [--use-fixture-dir]"
