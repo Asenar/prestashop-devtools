@@ -33,6 +33,7 @@
 # [#] clean code, 
 #
 #
+#
 # TODO 
 # Do better when creating employee
 # 1.4/1.5 full compatibility (--base-uri + SHOP_DOMAIN )
@@ -291,6 +292,9 @@ if (test $errorSql -ne 0) then
 else
 	verbose "customer datas email reseted : email = id_customer@prestashop.com, passwd=$adminPassword"
 fi
+
+v_sett=`cat "$working_dir/config/settings.inc.php" | grep "PS_VERSION" | sed "s#.*_PS_VERSION_', '\(.*\)');*#\1#"`
+
 echo "------------------------------------------------------------------------"
 echo "| Setting summary                                                      |"
 echo "------------------------------------------------------------------------"
@@ -307,11 +311,4 @@ echo "| customers : [id_customer]@prestashop.com / $adminPassword             "
 echo "------------------------------------------------------------------------"
 #echo "replace into $dbname.ps_employee set email='$adminEmail', passwd='`phpmd5 $COOKIE_KEY$adminPassword`', active=1, id_profile=1" 
 #echo "replace into $dbname.ps_employee set passwd='`phpmd5 $COOKIE_KEY$adminPassword`', active=1, id_profile = 1, lastname='Bergerac', firstname='Cyrano Savinien' WHERE email='$adminEmail'" |mysql -u$dbuser $dbname
-
 #####################################################################################################
-
-v_sett=`cat "$working_dir/config/settings.inc.php" | grep "PS_VERSION" | sed "s#.*_PS_VERSION_', '\(.*\)');*#\1#"`
-echo "--------------------------------"
-echo "|                              |"
-echo "|                              |"
-echo "--------------------------------"

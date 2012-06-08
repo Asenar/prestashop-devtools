@@ -1,5 +1,12 @@
-# bash completion for Debian apache2 configuration tools
-# $Id: apache2,v 1.1 2005/03/16 22:51:19 guillaume Exp $
+# Bash completion rocks :)
+# file : bash_completion.d/addFixture
+# desc : this file is used by addFixture and should be placed in your bash_completion dir
+#
+#
+# author : Michaël Marineti
+# creation : 2011-06-14
+# modified : 2012-06-08
+#
 
 _useFixture()
 {
@@ -8,7 +15,7 @@ _useFixture()
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
 	# start with a comma, 
-  opts="--help --verbose --db --base-uri=/ --use-fixture-dir"
+  opts="--help --verbose --db= --base-uri= --use-fixture-dir"
   sqlFiles=`ls /var/fixtures/*.sql | awk -F / '{print $4}' | awk -F ".sql" '{print $1}'`
 
 	params=`for i in $sqlFiles; do 
@@ -16,17 +23,15 @@ _useFixture()
 			echo $i; 
 		fi
 	done`
-
-	
 	# start with a comma, 
   if [[ ${cur} == -* ]] ; then
-		COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+		COMPREPLY=( $(compgen -o nospace -W "${opts}" -- ${cur}) )
    	return 0
 	else
 		COMPREPLY=( $(compgen -W "${params}" ${cur}) )
 		
   fi
 }
-complete -F _useFixture useFixture
+complete -o nospace -F _useFixture useFixture
 
 

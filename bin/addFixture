@@ -7,7 +7,7 @@
 #
 # author : Michaël Marineti
 # creation : 2011-06-14
-# modified : 2012-05-31
+# modified : 2012-06-08
 #
 # TODO
 #
@@ -15,19 +15,30 @@
 # 2011-08-01
 # [+] verbose  :) :) :)
 # [+] autocompletion, Oh YEAH !
-#
+# 2012-06-08
+# [+] create fixtureDir if not exists :)
 #
 # TODO 
 # - change customer email and pass 
 # - 1.4/1.5 full compatibility (--base-uri + SHOP_DOMAIN )
 # - add --help
+# - add warning if overwrite
 
 working_dir=`pwd`
 fixtureDir=/var/fixtures/
 
+if (test ! -d $fixtureDir ) then
+	echo "trying to create $fixtureDir ..."
+	mkdir $fixtureDir -p
+	if (test $? -ne 0) then
+		echo "$fixtureDir does not exists and cannot be created"
+		exit 1
+	fi
+fi
+
+
 if (test -z "$1") then
-	echo ''
-	echo 'First argument (fixture name) is missing'
+	echo "First argument is missing (fixture name)"
 	exit 1
 fi
 fixture_name=$1
@@ -68,13 +79,15 @@ echo "$working_dir/config/settings.inc.php copied in $fixtureDir$fixture_name.se
 
 # 3rd add the whole dir.
 rm -rf $fixtureDir$fixture_name
-# if (test -d "$working_dir/.svn") then
-#	echo "exporting $working_dir into $fixtureDir$fixture_name"
-#	svn export $working_dir $fixtureDir$fixture_name --force
-#else
-	echo "/!\ /!\ NO MORE EXPORT, NOW ALWATS COPY /!\ /!\ "
-	echo "$working_dir into $fixtureDir$fixture_name"
+
+if (test -d "$working_dir/.svn") then
+	echo "exporting $working_dir/ into $fixtureDir$fixture_name ... "
+	cd $working_dir
+	svn export . $fixtureDir$fixture_name --force
+	cd -
+else
+	echo "SOMETHING COMMENTED copy $working_dir into $fixtureDir$fixture_name"
 	cp -r $working_dir $fixtureDir$fixture_name
-# fi
+fi
 
 echo "Usage: useFixture $fixture_name [--use-fixture-dir]"
